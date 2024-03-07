@@ -21,26 +21,49 @@ exports.initializeDatabase = async (req, res) => {
 
 exports.listTransactions = async (req, res) => {
   try {
-    const searchQuery = req.query.search; // Assuming search parameter is passed in the query string
-    const searchRegex = new RegExp(searchQuery, 'i'); // Case-insensitive regex for search
+    const searchQuery = req.query.search;
+    const searchRegex = new RegExp(searchQuery, 'i');
+    
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const perPage = parseInt(req.query.perPage) || 10;
+    const skip = (page - 1) * perPage;
 
-    // Find transactions matching the search query
-    const transactions = await Products.find({
+    // Find total count of transactions matching the search query
+    const totalCount = await Products.countDocuments({
       $or: [
-        { title: { $regex: searchRegex } }, // Match title containing search text
-        { description: { $regex: searchRegex } }, // Match description containing search text
-        // { price: { $regex: searchRegex } } // Match price containing search text
+        { title: { $regex: searchRegex } },
+        { description: { $regex: searchRegex } }
       ]
     });
 
+    // Find transactions matching the search query with pagination
+    const transactions = await Products.find({
+      $or: [
+        { title: { $regex: searchRegex } },
+        { description: { $regex: searchRegex } }
+      ]
+    }).skip(skip).limit(perPage);
+
+    // Calculate total pages based on total count and items per page
+    const totalPages = Math.ceil(totalCount / perPage);
+
     res.json({
-      transactions: transactions // Sending the actual transaction data in the response
+      transactions: transactions,
+      pagination: {
+        totalItems: totalCount,
+        totalPages: totalPages,
+        currentPage: page,
+        itemsPerPage: perPage
+      }
     });
   } catch (error) {
     console.error("Error listing transactions:", error);
     res.status(400).json({ error: "Failed to list transactions" });
   }
 };
+
+
 
 
 exports.getStatistics = async (req, res) => {
